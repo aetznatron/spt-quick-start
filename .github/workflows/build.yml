@@ -9,7 +9,7 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build SPT-Start.exe
         shell: pwsh
@@ -23,7 +23,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "SPT-Start.exe --help failed with $LASTEXITCODE" }
           if (-not ($out -match '--dry-run')) { throw 'unexpected --help output' }
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: SPT-Start
           path: dist/SPT-Start.exe
