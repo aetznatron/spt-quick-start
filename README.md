@@ -74,16 +74,6 @@ The exe is a plain C# console app compiled with the C# compiler that ships with 
 embeds `icon\spt-quickstart.ico` as the executable icon. CI does the same on every push
 (see `.github/workflows/build.yml`).
 
-## Icon
-
-Original artwork, not derived from the game's assets: a brass rifle cartridge case
-(neck, shoulder, extractor groove, primer) on a dark badge.
-
-- `icon/spt-quickstart.ico` — 16/24/32/48/64/128/256 px, two detail levels
-  (bolder shapes for 16–32 px so it stays legible in the taskbar)
-- `tools/make_icon.py` — regenerates every size from code (needs Python 3 + Pillow):
-  `python3 tools/make_icon.py`
-
 ## Troubleshooting
 
 **"Server did not answer ... within 240s"** — check the server console window and
