@@ -39,13 +39,7 @@ diagnosed afterwards.
 
 1. Build or download `SPT-Start.exe` and put it in the SPT install root, next to
    `EscapeFromTarkov.exe`.
-2. Optional — desktop shortcut with the exe icon:
-
-   ```powershell
-   .\tools\install-shortcut.ps1 -InstallPath "D:\Games\SPT 4.1.6 essential"
-   ```
-
-3. Double-click. That's it.
+2. Double-click. That's it.
 
 The exe locates everything relative to its own directory, so the same file works in
 any SPT install (main install, ISB/Aishi, Storyline Backport, ...).
