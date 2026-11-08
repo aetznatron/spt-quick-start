@@ -1,0 +1,30 @@
+name: build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build SPT-Start.exe
+        shell: pwsh
+        run: ./tools/build.ps1 -OutputPath dist/SPT-Start.exe
+
+      - name: Smoke test (--help)
+        shell: pwsh
+        run: |
+          $out = & ./dist/SPT-Start.exe --help
+          $out | Write-Output
+          if ($LASTEXITCODE -ne 0) { throw "SPT-Start.exe --help failed with $LASTEXITCODE" }
+          if (-not ($out -match '--dry-run')) { throw 'unexpected --help output' }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SPT-Start
+          path: dist/SPT-Start.exe
+          if-no-files-found: error
