@@ -26,6 +26,12 @@ the game client with the profile you used last — no launcher, no dropdown, no 
    -config={'BackendUrl':'https://127.0.0.1:6969','Version':'live','MatchingVersion':'live'}
    ```
 
+5. **Shutdown** — the launcher now waits for the game in the background (its console window
+   hides while you play) and stops the server it started as soon as `EscapeFromTarkov.exe`
+   exits. The client's logout/profile save gets a few seconds to land first, so nothing is
+   cut off mid-write. A server that was already running before the tool was started is never
+   touched.
+
 Everything is appended to `SPT-Start.log` next to the exe, so a failed start can be
 diagnosed afterwards.
 
@@ -51,7 +57,7 @@ any SPT install (main install, ISB/Aishi, Storyline Backport, ...).
 | `--profile <id>` | force a specific profile id instead of the last used one |
 | `--launcher` | start `SPT.Launcher.exe` instead of the game (server + launcher only) |
 | `--dry-run` | start the server, validate everything, print the client command line, do not start the game |
-| `--keep-server` | keep the server running after `--dry-run` |
+| `--keep-server` | never stop the server automatically — neither after `--dry-run` nor when the game closes |
 | `--help` | print the options |
 
 ## Build from source

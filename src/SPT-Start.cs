@@ -15,6 +15,7 @@ using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 
@@ -37,6 +38,9 @@ internal static class Program
     private static bool openLauncher;
     private static bool keepServer;
     private static string forcedProfile;
+
+    // pid of the server process this run started (0 if it was already running)
+    private static int serverPid = -1;
 
     private static int Main(string[] args)
     {
@@ -63,7 +67,7 @@ internal static class Program
                 Console.WriteLine("  --profile <id>   force a specific profile id");
                 Console.WriteLine("  --launcher       start SPT.Launcher.exe instead of the game");
                 Console.WriteLine("  --dry-run        start server and validate, do not start the game");
-                Console.WriteLine("  --keep-server    keep the server running after --dry-run");
+                Console.WriteLine("  --keep-server    never stop the server automatically (after --dry-run or game exit)");
                 return 0;
             }
         }
@@ -118,7 +122,8 @@ internal static class Program
             ProcessStartInfo info = new ProcessStartInfo(ServerExe);
             info.WorkingDirectory = Runtime;
             info.UseShellExecute = true;
-            Process.Start(info);
+            Process serverProcess = Process.Start(info);
+            if (serverProcess != null) { serverPid = serverProcess.Id; }
         }
 
         // ------------------------------------------------- 2. Wait for server
@@ -208,8 +213,24 @@ internal static class Program
                 ProcessStartInfo gi = new ProcessStartInfo(GameExe, arguments);
                 gi.WorkingDirectory = Root;
                 gi.UseShellExecute = false;
-                Process.Start(gi);
+                Process gameProcess = Process.Start(gi);
                 Say("  Client started. Have fun!", ConsoleColor.Green);
+
+                if (keepServer)
+                {
+                    Say("  Server will keep running after the game closes (--keep-server).", ConsoleColor.DarkGray);
+                }
+                else if (serverPid > 0 && gameProcess != null)
+                {
+                    Say("  Server will be stopped when the game closes.", ConsoleColor.DarkGray);
+                    Say("  Waiting in the background - this window hides until then.", ConsoleColor.DarkGray);
+                    HideConsole();
+                    WaitForGameAndStopServer(gameProcess, serverPid);
+                }
+                else if (serverPid <= 0)
+                {
+                    Say("  Server was already running before this tool - it will not be stopped.", ConsoleColor.DarkGray);
+                }
             }
         }
 
@@ -252,6 +273,92 @@ internal static class Program
             try { Console.ReadKey(true); } catch { }
         }
         return 1;
+    }
+
+    // ------------------------------------------------------------- shutdown
+    // The launcher waits for the game itself (a separate watcher process would be killed
+    // when this console closes). Its window is hidden for that, so nothing stays in the way.
+    private static void HideConsole()
+    {
+        try
+        {
+            IntPtr handle = GetConsoleWindow();
+            if (handle != IntPtr.Zero) { ShowWindow(handle, SW_HIDE); }
+        }
+        catch { }
+    }
+
+    /// <summary>Block until the game exits, then stop the server we started.</summary>
+    private static void WaitForGameAndStopServer(Process gameProcess, int serverPidToStop)
+    {
+        DateTime startedAt = DateTime.Now;
+        LogLine(string.Format("waiting for the game to exit, will then stop server pid {0}", serverPidToStop));
+
+        try { gameProcess.WaitForExit(); } catch { }
+
+        TimeSpan played = DateTime.Now - startedAt;
+        LogLine(string.Format("game closed after {0:0}s, stopping server", played.TotalSeconds));
+        if (played.TotalSeconds < 10)
+        {
+            LogLine("hint: the client ran for less than 10s - if it failed to start, just run the launcher again");
+        }
+
+        // the client sends its logout/profile save right before it exits
+        Thread.Sleep(4000);
+
+        Process server = null;
+        try { server = Process.GetProcessById(serverPidToStop); } catch { }
+
+        if (server == null)
+        {
+            LogLine("server already gone");
+            return;
+        }
+
+        // guard against pid reuse: only stop it while it still is the SPT server
+        try
+        {
+            if (!string.Equals(server.ProcessName, "SPT.Server", StringComparison.OrdinalIgnoreCase))
+            {
+                LogLine("pid " + serverPidToStop + " is no longer SPT.Server (" + server.ProcessName +
+                        ") - not touching it");
+                return;
+            }
+        }
+        catch { return; }
+
+        try
+        {
+            if (!server.HasExited)
+            {
+                server.Kill();
+                server.WaitForExit(15000);
+                LogLine("server stopped");
+            }
+        }
+        catch (Exception ex)
+        {
+            LogLine("stopping the server failed - " + ex.Message);
+        }
+    }
+
+    [DllImport("kernel32.dll")]
+    private static extern IntPtr GetConsoleWindow();
+
+    [DllImport("user32.dll")]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    private const int SW_HIDE = 0;
+
+    /// <summary>Log without touching the console (used while it is hidden).</summary>
+    private static void LogLine(string text)
+    {
+        try
+        {
+            File.AppendAllText(LogFile,
+                "[" + DateTime.Now.ToString("HH:mm:ss") + "] " + text + Environment.NewLine, Encoding.UTF8);
+        }
+        catch { }
     }
 
     // ---------------------------------------------------------------- server
